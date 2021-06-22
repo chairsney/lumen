@@ -7,29 +7,6 @@ class CurlHelper
 {
     private static $timeout = 555;
     private static $params_format = 'json';//必须是json或者是array
-    /*
-     * curl模拟post请求云顶数据
-     * 传入json
-     * 返回array
-     * */
-    public function yd_curl_post($url, $data_string) {
-        $ch = curl_init();
-        curl_setopt($ch, CURLOPT_POST, 1);
-        curl_setopt($ch, CURLOPT_URL, $url);
-        curl_setopt($ch, CURLOPT_POSTFIELDS, $data_string);
-        curl_setopt($ch, CURLOPT_HTTPHEADER, array(
-                'Content-Type: application/json; charset=utf-8',
-                'Content-Length: ' . strlen($data_string))
-        );
-        ob_start();
-        curl_exec($ch);
-        $return_content = ob_get_contents();
-        ob_end_clean();
-
-        $return_code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-        return array($return_code, $return_content);
-    }
-
 
     /**
      *curl
@@ -52,44 +29,24 @@ class CurlHelper
         $config = []
     )
     {
-        //header设置
-        if (!isset($config['header'])) {
-            $header = [];
-        } else {
-            $header = $config['header'];
-        }
-
+        //params格式设置
+        $params_format = isset($config['params_format'])?$config['params_format']:self::$params_format;
         //超时设置
-        if (!isset($config['timeout'])) {
-            $timeout = self::$timeout;
-
-        } else {
-            $timeout = $config['timeout'];
+        $timeout = isset($config['timeout'])?$config['timeout']:self::$timeout;
+        //header设置
+        $header = isset($config['header'])?$config['header']:[];
+        //config设置accept,content-type,Authorization
+        $header[] = isset($config['accept'])?$config['accept']:'Accept: application/json';
+        $header[] = isset($config['content-type'])?$config['content-type']:'Content-Type: application/json';
+        if (isset($config['authorization'])){
+            $header[] = $config['authorization'];
         }
-
+        $x_www_from_urlencoded = isset($config['X-WWW-FORM-URLENCODED'])?1:0;
         //cookies设置
         if (!isset($config['cookies'])) {
             $cookies = [];
         } else {
             $cookies = $config['cookies'];
-        }
-
-        //params格式设置
-        if (!isset($config['params_format'])) {
-            $params_format = self::$params_format;
-        }
-
-        //header设置accept,content-type,Authorization
-        if (!isset($config['accept'])) {
-            $header[] = 'Accept: application/json';
-        }
-        if (!isset($config['content-type'])) {
-            $header[] = 'Content-Type: application/json';
-        }else{
-            $header[] = $config['content-type'];
-        }
-        if (isset($config['authorization'])){
-            $header[] = $config['authorization'];
         }
 
 
@@ -102,7 +59,6 @@ class CurlHelper
             CURLOPT_FOLLOWLOCATION => 1,
             //CURLOPT_COOKIE => $cookie,
             CURLOPT_HTTPHEADER => $header,
-
         );
 
         /* 根据请求类型设置特定参数 */
@@ -117,14 +73,12 @@ class CurlHelper
                 $opts[CURLOPT_URL] = $url;
                 $opts[CURLOPT_POST] = 1;
                 $opts[CURLOPT_POSTFIELDS] = $params;
-                break;
-            case 'X-WWW-FORM-URLENCODED':
-                $opts[CURLOPT_URL] = $url;
-                $opts[CURLOPT_POST] = 1;
-                if ($params_format == 'json') {
-                    $params = json_decode($params, true);
+                if ($x_www_from_urlencoded){
+                    if ($params_format == 'json') {
+                        $params = json_decode($params, true);
+                    }
+                    $opts[CURLOPT_POSTFIELDS] = http_build_query($params);
                 }
-                $opts[CURLOPT_POSTFIELDS] = http_build_query($params);
                 break;
             case 'DELETE':
                 $opts[CURLOPT_URL] = $url;
